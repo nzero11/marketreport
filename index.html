@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chery Market Survey Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; }
+    input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; background: #334155; outline: none; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #818cf8; cursor: pointer; }
+    input[type=number]::-webkit-inner-spin-button { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.5.0/dist/Recharts.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
+    const { PieChart, Pie, Cell } = window.Recharts;
+
+    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const MONTHLY_RESPONDENTS = [147, 132, 158, 141, 165, 149, 156, 138, 172, 144, 151, 163];
+
+    const COLORS = {
+      bg: "#0f172a", card: "#1e293b", border: "#334155",
+      text: "#e2e8f0", muted: "#94a3b8", accent: "#818cf8",
+    };
+    const LIGHT = {
+      bg: "#ffffff", card: "#f8fafc", border: "#e2e8f0",
+      text: "#0f172a", muted: "#64748b", accent: "#818cf8",
+    };
+    const PIE_COLORS = ["#6ee7b7","#34d399","#fbbf24","#fb923c","#f87171","#c084fc","#38bdf8","#22d3ee","#a78bfa","#60a5fa"];
+
+    const SURVEY_DATA = [
+      { id:"gender", question:"What is your gender?", type:"single", options:[{label:"Male",base:63},{label:"Female",base:37}] },
+      { id:"age", question:"How old are you this year?", type:"single", options:[{label:"≤30",base:12},{label:"30–40",base:28},{label:"40–50",base:34},{label:"50–60",base:19},{label:"60+",base:7}] },
+      { id:"occupation", question:"What is your occupation?", type:"multi", options:[{label:"Administrator",base:8},{label:"Hairdresser",base:3},{label:"Graphic designer",base:4},{label:"Machine operator",base:8},{label:"HR specialist",base:5},{label:"IT",base:9},{label:"Accountant",base:5},{label:"Waiter",base:4},{label:"Project manager",base:6},{label:"Logistics worker",base:7},{label:"Driver",base:7},{label:"Cleaner",base:5},{label:"Teacher",base:6},{label:"Salesperson",base:11},{label:"Lawyer",base:2},{label:"Other",base:10}] },
+      { id:"heard_chery", question:"Heard of Chery brand?", type:"single", options:[{label:"Yes, heard and know about it",base:30},{label:"Yes, heard but don't know much",base:42},{label:"No, never heard of it",base:28}] },
+      { id:"chery_awareness", question:"How well-known do you think Chery is in Hungary?", type:"single", options:[{label:"Not known at all",base:18},{label:"Very low",base:22},{label:"Quite low",base:23},{label:"Average",base:24},{label:"Quite high",base:6},{label:"Very high",base:2},{label:"Not sure",base:5}] },
+      { id:"chinese_brands", question:"What is your opinion on Chinese car brands entering the Hungarian market?", type:"single", options:[{label:"Very excited",base:36},{label:"Curious, but with cautions",base:42},{label:"Neutral",base:9},{label:"Some quality concerns",base:6},{label:"Prefers established EU brands",base:5},{label:"Not interested",base:2}] },
+      { id:"suv_size", question:"SUV size preference?", type:"single", options:[{label:"Compact",base:37},{label:"Mid-size",base:49},{label:"Full-size",base:14}] },
+      { id:"powertrain", question:"Powertrain type for new SUV?", type:"single", options:[{label:"ICE",base:47},{label:"HEV",base:26},{label:"PHEV",base:19},{label:"BEV",base:8}] },
+      { id:"4wd", question:"Would you consider buying a 4WD SUV?", type:"single", options:[{label:"Will consider",base:69},{label:"Maybe",base:22},{label:"Will not consider",base:9}] },
+      { id:"seat_material", question:"Preferred seat material", type:"single", options:[{label:"Woven",base:23},{label:"Faux-leather",base:38},{label:"Leather",base:25},{label:"Woven-leather mix",base:14}] },
+      { id:"info_channels", question:"Which channels do you use to learn about cars?", type:"multi", options:[{label:"Social media",base:17},{label:"Online news/articles",base:11},{label:"Car magazines",base:9.5},{label:"Online video platforms",base:13},{label:"Auto shows",base:1.5},{label:"Family/friend recommendation",base:12.5},{label:"Car forum",base:11.5},{label:"Dealer",base:7},{label:"Outdoor advertising",base:8.5},{label:"TV Commercials",base:8.5}] },
+      { id:"learned_chery", question:"How did you first learn about Chery?", type:"multi", options:[{label:"Social media",base:31},{label:"Online news/articles",base:24},{label:"Car magazines",base:12},{label:"Online video platforms",base:12},{label:"Auto shows",base:0.5},{label:"Family/friend recommendation",base:3.5},{label:"Car forum",base:14},{label:"Dealer",base:3.5},{label:"Search engines",base:6},{label:"During travel",base:1},{label:"Haven't heard of Chery",base:0.5}] },
+      { id:"similar_brands", question:"Which brands do you think are similar to Chery?", type:"multi", options:[{label:"BYD",base:17},{label:"Dongfeng",base:12},{label:"Great Wall",base:10},{label:"Geely",base:15},{label:"Skoda",base:11},{label:"Toyota",base:15},{label:"VW",base:10},{label:"BMW",base:4.5},{label:"AUDI",base:6},{label:"FORD",base:9},{label:"MG",base:11.5}] },
+      { id:"first_impression", question:"What is your first impression on Chery?", type:"multi", options:[{label:"Cost-effective",base:33},{label:"Innovative tech.",base:30},{label:"Independent R&D",base:3},{label:"Safety",base:15},{label:"Environmentally friendly",base:7},{label:"Not familiar",base:9},{label:"Promising newcomer",base:3},{label:"Stylish appearance",base:7}] },
+      { id:"chinese_association", question:"When you think of Chinese automobile brands what do you associate with them?", type:"multi", options:[{label:"Cost-effective",base:19},{label:"Innovative tech.",base:17},{label:"Safe/reliable",base:9},{label:"Modern design",base:12},{label:"Environmentally friendly",base:8},{label:"Affordable",base:17},{label:"Intelligent config",base:9},{label:"Aftersales service",base:6},{label:"Quality concerns",base:0.5},{label:"Good value",base:10}] },
+      { id:"competitive_areas", question:"In which areas do you think Chinese car brands are competitive?", type:"multi", options:[{label:"Price",base:22},{label:"Tech/innovation",base:25},{label:"Performance",base:10},{label:"Safety",base:11},{label:"Exterior design",base:17},{label:"Smart cockpit",base:11},{label:"Aftersales",base:4}] },
+      { id:"chery_facts", question:"Which facts about Chery appeal most?", type:"multi", options:[{label:"Largest exporter for 22 years",base:34},{label:"Fortune 500 #385",base:20},{label:"Global sales 2M+ units",base:29},{label:"First independent chinese brand with 1M+ sales",base:19},{label:"15M+ users globally",base:36}] },
+      { id:"confidence_factors", question:"Factors increasing confidence in new brand?", type:"multi", options:[{label:"Brand history",base:33},{label:"Quality",base:44},{label:"Aftersales",base:20},{label:"User reviews",base:36},{label:"Innovation",base:21},{label:"Price/value",base:49},{label:"Media exposure",base:12},{label:"Partnerships",base:14},{label:"Trial activities",base:23},{label:"Customisation",base:15},{label:"Transparent info",base:22}] },
+      { id:"usage_scenes", question:"Usual car usage scenes?", type:"multi", options:[{label:"Commuting",base:42},{label:"City party",base:50},{label:"Excursion",base:33},{label:"Long travel",base:13},{label:"Daily shopping",base:54},{label:"Dating",base:8},{label:"Family visit",base:11},{label:"Sports training",base:4},{label:"Business",base:6},{label:"Hobby travel",base:2},{label:"Kids to school",base:2}] },
+      { id:"car_ownership", question:"Do you have a car? Which model?", type:"multi", options:[{label:"Dacia Duster",base:9},{label:"Ford Focus",base:4.5},{label:"Ford Kuga",base:3.1},{label:"Hyundai Tucson",base:6.8},{label:"Hyundai i30",base:9.8},{label:"Kia Ceed",base:1},{label:"Nissan Qashqai",base:2.4},{label:"Peugeot 3008",base:7.5},{label:"Renault Clio",base:3},{label:"Skoda Kodiaq",base:4.5},{label:"Skoda Octavia",base:8.8},{label:"Suzuki S-Cross",base:10},{label:"Toyota Corolla",base:3},{label:"Toyota Yaris",base:5.3},{label:"VW Golf",base:4},{label:"VW Passat",base:9},{label:"No Car",base:8.3}] },
+      { id:"buying_factors", question:"Most important factors buying a car?", type:"multi", options:[{label:"Interior/exterior",base:16},{label:"Security",base:6},{label:"Dynamic",base:4},{label:"Price/policies",base:19},{label:"Brand/reputation",base:11},{label:"Tech config",base:13},{label:"After-sales cost",base:22},{label:"Vehicle quality",base:29},{label:"Interior design",base:9},{label:"Trunk size",base:3},{label:"EV range",base:4},{label:"City drivability",base:15},{label:"Value retention",base:38},{label:"Service network",base:31},{label:"Fuel/energy cost",base:28},{label:"Charge time",base:2}] },
+      { id:"ice_factors", question:"Main factors when considering ICE/HEV/MHEV?", type:"multi", options:[{label:"Fuel consumption",base:39},{label:"Price",base:53},{label:"Towing",base:8},{label:"Controllability",base:13},{label:"Stability",base:16},{label:"Aftersales",base:22},{label:"Dynamic",base:18},{label:"Not choosing",base:1}] },
+      { id:"bev_factors", question:"Main factors when considering BEV?", type:"multi", options:[{label:"Fuel/energy cost",base:38},{label:"Charging time",base:29},{label:"Battery safety",base:39},{label:"Price",base:49},{label:"Pure range",base:32},{label:"Total range",base:27},{label:"Dynamic",base:11},{label:"Towing",base:9},{label:"Controllability",base:18},{label:"Stability",base:11},{label:"After-sales",base:15},{label:"Not choosing",base:2}] },
+      { id:"4wd_worries", question:"What worries you most about 4WD SUV?", type:"multi", options:[{label:"Fuel consumption",base:65},{label:"Overpriced",base:48},{label:"High maintenance",base:27},{label:"Few choices",base:3},{label:"Low climbing",base:4},{label:"Urban discomfort",base:4},{label:"Parking issues",base:1},{label:"High insurance",base:4}] },
+      { id:"valued_configs", question:"Which are most valued configurations for you?", type:"multi", options:[{label:"Airbag",base:32},{label:"Speaker",base:20},{label:"Central screen",base:13},{label:"Driver assist",base:23},{label:"Parking camera",base:19},{label:"Ambient lighting",base:3},{label:"Heated steering",base:11},{label:"Ventilated/heated seats",base:18},{label:"Heated windscreen",base:4},{label:"6-way adj. seats",base:5},{label:"Memory seats",base:9},{label:"HUD",base:5},{label:"Keyless entry",base:4},{label:"Blindspot det.",base:4},{label:"Auto. rain wipers",base:5}] },
+      { id:"promotions", question:"Expected promotions/aftersales", type:"multi", options:[{label:"Discounted windshield",base:14},{label:"Free tire change",base:22},{label:"Free inspection",base:10},{label:"Free software update",base:21},{label:"Free cleaning",base:18},{label:"Discounted insurance",base:15}] },
+    ];
+
+    function ls(key, fallback) {
+      try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+    }
+    function lsSave(key, val) {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+    }
+
+    function generateMonthlyData(base, mIdx, bias = 0) {
+      const trend = (mIdx - 5) * 0.3 * bias;
+      const noise = Math.sin(mIdx * 0.7) * 2 + Math.random() * 3 - 1.5;
+      return Math.max(0, Math.min(100, base + trend + noise));
+    }
+
+    function QuestionCard({ question, monthIdx, sliderValue, onEnlarge, totalResponses, C }) {
+      const data = useMemo(() => question.options.map((opt, i) => ({
+        label: opt.label,
+        value: Math.max(0, generateMonthlyData(opt.base, monthIdx, i * 0.1) + sliderValue)
+      })), [question, monthIdx, sliderValue]);
+
+      const total = data.reduce((s, d) => s + d.value, 0);
+      const normalized = question.type === "single" ? data.map(d => ({ ...d, value: (d.value / total) * 100 })) : data;
+      const chartData = normalized.map(d => ({ name: d.label, value: parseFloat(d.value.toFixed(1)) }));
+
+      return (
+        <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, position: "relative" }}>
+          <button onClick={() => onEnlarge({ question, chartData })}
+            style={{ position: "absolute", top: 16, right: 16, background: C.accent, border: "none", borderRadius: 6, padding: "6px 12px", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+            🔍 Enlarge
+          </button>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 4, paddingRight: 80 }}>{question.question}</div>
+          <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>{question.type === "single" ? "Single-select" : "Multi-select (up to 3)"}</div>
+          <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+            <PieChart width={200} height={200}>
+              <Pie data={chartData} cx={100} cy={100} innerRadius={50} outerRadius={80} dataKey="value"
+                label={({ value }) => `${value}%`} labelStyle={{ fontSize: 11, fill: C.text, fontWeight: 600 }}>
+                {chartData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+              </Pie>
+            </PieChart>
+            <div style={{ flex: 1, fontSize: 11 }}>
+              {chartData.map((d, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <div style={{ width: 12, height: 12, borderRadius: 2, background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                  <div style={{ flex: 1, color: C.muted }}>{d.name}</div>
+                  <div style={{ fontWeight: 600, color: C.text }}>{d.value}%</div>
+                  <div style={{ fontSize: 10, color: C.muted, minWidth: 35, textAlign: "right" }}>({Math.round((d.value / 100) * totalResponses)})</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [monthIdx, setMonthIdx] = useState(() => ls('surveyMonthIdx', 0));
+      const [slidersByMonth, setSlidersByMonth] = useState(() => ls('surveySlidersByMonth', MONTHS.map(() => SURVEY_DATA.map(() => 0))));
+      const [history, setHistory] = useState(() => ls('surveyHistory', [MONTHS.map(() => SURVEY_DATA.map(() => 0))]));
+      const [historyIndex, setHistoryIndex] = useState(() => ls('surveyHistoryIndex', 0));
+      const [presets, setPresets] = useState(() => ls('surveyPresets', []));
+      const [showPresetModal, setShowPresetModal] = useState(false);
+      const [presetName, setPresetName] = useState('');
+      const [monthlyResponses, setMonthlyResponses] = useState(() => ls('surveyMonthlyResponses', MONTHLY_RESPONDENTS));
+      const [enlargedChart, setEnlargedChart] = useState(null);
+      const [showInsights, setShowInsights] = useState(() => ls('surveyShowInsights', true));
+      const [darkMode, setDarkMode] = useState(() => ls('surveyDarkMode', true));
+
+      const C = darkMode ? COLORS : LIGHT;
+      const totalResponses = monthlyResponses[monthIdx];
+      const sliders = slidersByMonth[monthIdx] || SURVEY_DATA.map(() => 0);
+
+      useEffect(() => { lsSave('surveyMonthIdx', monthIdx); }, [monthIdx]);
+      useEffect(() => { lsSave('surveySlidersByMonth', slidersByMonth); }, [slidersByMonth]);
+      useEffect(() => { lsSave('surveyHistory', history); }, [history]);
+      useEffect(() => { lsSave('surveyHistoryIndex', historyIndex); }, [historyIndex]);
+      useEffect(() => { lsSave('surveyPresets', presets); }, [presets]);
+      useEffect(() => { lsSave('surveyMonthlyResponses', monthlyResponses); }, [monthlyResponses]);
+      useEffect(() => { lsSave('surveyShowInsights', showInsights); }, [showInsights]);
+      useEffect(() => { lsSave('surveyDarkMode', darkMode); }, [darkMode]);
+
+      const addToHistory = (next) => {
+        const newH = history.slice(0, historyIndex + 1);
+        newH.push(JSON.parse(JSON.stringify(next)));
+        if (newH.length > 50) newH.shift();
+        setHistory(newH);
+        setHistoryIndex(newH.length - 1);
+      };
+
+      const updateSlider = (qi, val) => {
+        const next = slidersByMonth.map((m, mi) => mi === monthIdx ? m.map((v, i) => i === qi ? val : v) : m);
+        setSlidersByMonth(next);
+        addToHistory(next);
+      };
+
+      const resetSliders = () => {
+        const next = slidersByMonth.map((m, mi) => mi === monthIdx ? SURVEY_DATA.map(() => 0) : m);
+        setSlidersByMonth(next);
+        addToHistory(next);
+      };
+
+      const undo = () => {
+        if (historyIndex > 0) {
+          const idx = historyIndex - 1;
+          setHistoryIndex(idx);
+          setSlidersByMonth(JSON.parse(JSON.stringify(history[idx])));
+        }
+      };
+
+      const redo = () => {
+        if (historyIndex < history.length - 1) {
+          const idx = historyIndex + 1;
+          setHistoryIndex(idx);
+          setSlidersByMonth(JSON.parse(JSON.stringify(history[idx])));
+        }
+      };
+
+      const savePreset = () => {
+        if (presetName.trim()) {
+          setPresets([...presets, { name: presetName, sliders: JSON.parse(JSON.stringify(slidersByMonth)), date: new Date().toISOString() }]);
+          setPresetName('');
+          setShowPresetModal(false);
+        }
+      };
+
+      const loadPreset = (p) => { setSlidersByMonth(JSON.parse(JSON.stringify(p.sliders))); addToHistory(p.sliders); };
+      const deletePreset = (i) => setPresets(presets.filter((_, pi) => pi !== i));
+
+      const generateInsights = () => {
+        const insights = [];
+        SURVEY_DATA.forEach((q, qi) => {
+          const data = q.options.map((opt, i) => ({ label: opt.label, value: Math.max(0, generateMonthlyData(opt.base, monthIdx, i * 0.1) + sliders[qi]) }));
+          const total = data.reduce((s, d) => s + d.value, 0);
+          const norm = q.type === "single" ? data.map(d => ({ ...d, value: (d.value / total) * 100 })) : data;
+          const top = [...norm].sort((a, b) => b.value - a.value)[0];
+          if (top.value > 30 && q.type === "single") insights.push({ question: q.question, text: `${top.value.toFixed(0)}% selected "${top.label}"` });
+          if (q.type === "multi" && top.value > 40) insights.push({ question: q.question, text: `Top choice: "${top.label}" (${top.value.toFixed(0)}%)` });
+        });
+        return insights.slice(0, 8);
+      };
+
+      const exportToCSV = () => {
+        let csv = `Chery Market Survey - ${MONTHS[monthIdx]} (N=${totalResponses})\n\n`;
+        SURVEY_DATA.forEach((q, qi) => {
+          const data = q.options.map((opt, i) => ({ label: opt.label, value: Math.max(0, generateMonthlyData(opt.base, monthIdx, i * 0.1) + sliders[qi]) }));
+          const total = data.reduce((s, d) => s + d.value, 0);
+          const norm = q.type === "single" ? data.map(d => ({ ...d, value: (d.value / total) * 100 })) : data;
+          csv += `"${q.question}","${q.type === "single" ? "Single-select" : "Multi-select"}"\nOption,Percentage\n`;
+          norm.forEach(d => { csv += `"${d.label}",${d.value.toFixed(1)}%\n`; });
+          csv += "\n";
+        });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+        link.download = `Chery_Survey_${MONTHS[monthIdx]}_N${totalResponses}.csv`;
+        link.click();
+      };
+
+      const insights = generateInsights();
+      const canUndo = historyIndex > 0;
+      const canRedo = historyIndex < history.length - 1;
+
+      const btnStyle = (active, color) => ({
+        padding: "12px 20px", borderRadius: 8, border: "none",
+        background: active ? (color || C.accent) : C.card,
+        color: active ? "#fff" : C.muted,
+        fontSize: 14, fontWeight: 600, cursor: "pointer"
+      });
+
+      return (
+        <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: "system-ui, sans-serif", padding: 24 }}>
+
+          {/* Enlarged Modal */}
+          {enlargedChart && (
+            <div onClick={() => setEnlargedChart(null)}
+              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
+              <div onClick={e => e.stopPropagation()}
+                style={{ background: C.card, borderRadius: 16, padding: 60, maxWidth: 1200, width: "100%", border: `2px solid ${C.border}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 40 }}>
+                  <div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: C.text, marginBottom: 8 }}>{enlargedChart.question.question}</div>
+                    <div style={{ fontSize: 16, color: C.muted }}>{enlargedChart.question.type === "single" ? "Single-select" : "Multi-select (up to 3)"} | {MONTHS[monthIdx]} | N={totalResponses}</div>
+                  </div>
+                  <button onClick={() => setEnlargedChart(null)}
+                    style={{ background: C.accent, border: "none", borderRadius: 8, padding: "12px 24px", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                    ✕ Close
+                  </button>
+                </div>
+                <div style={{ display: "flex", gap: 60, alignItems: "center", justifyContent: "center" }}>
+                  <PieChart width={500} height={500}>
+                    <Pie data={enlargedChart.chartData} cx={250} cy={250} innerRadius={120} outerRadius={200} dataKey="value"
+                      label={({ value }) => `${value}%`} labelStyle={{ fontSize: 18, fill: C.text, fontWeight: 700 }}>
+                      {enlargedChart.chartData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                  </PieChart>
+                  <div style={{ flex: 1, fontSize: 16 }}>
+                    {enlargedChart.chartData.map((d, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: 4, background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                        <div style={{ flex: 1, color: C.muted }}>{d.name}</div>
+                        <div style={{ fontWeight: 700, color: C.text, fontSize: 20 }}>{d.value}%</div>
+                        <div style={{ fontSize: 14, color: C.muted, minWidth: 50, textAlign: "right" }}>({Math.round((d.value / 100) * totalResponses)})</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Save Preset Modal */}
+          {showPresetModal && (
+            <div onClick={() => setShowPresetModal(false)}
+              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div onClick={e => e.stopPropagation()}
+                style={{ background: C.card, borderRadius: 16, padding: 40, width: 400, border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 8 }}>💾 Save Preset</div>
+                <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Save current slider settings for all months as a named preset.</div>
+                <input type="text" placeholder="e.g. Optimistic scenario..." value={presetName}
+                  onChange={e => setPresetName(e.target.value)} onKeyDown={e => e.key === 'Enter' && savePreset()} autoFocus
+                  style={{ width: "100%", padding: "12px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 14, outline: "none", marginBottom: 16 }} />
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button onClick={() => setShowPresetModal(false)}
+                    style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: C.border, color: C.text, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+                  <button onClick={savePreset}
+                    style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: C.accent, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Header */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: darkMode ? "#fff" : "#0f172a" }}>🚗 Chery Market Survey — Hungary</h1>
+                <p style={{ margin: "6px 0 0", color: C.muted, fontSize: 14 }}>Product & Service ratings survey with interactive controls (N={totalResponses})</p>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={() => setDarkMode(!darkMode)} style={{ ...btnStyle(false), border: `1px solid ${C.border}`, color: C.text, background: C.card }}>{darkMode ? "☀️ Light" : "🌙 Dark"}</button>
+                <button onClick={() => setShowInsights(!showInsights)} style={btnStyle(showInsights)}>💡 {showInsights ? "Hide" : "Show"} Insights</button>
+                <button onClick={exportToCSV} style={btnStyle(true)}>📊 Export CSV</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Month Selector */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
+            {MONTHS.map((m, i) => (
+              <button key={i} onClick={() => setMonthIdx(i)}
+                style={{ padding: "8px 16px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500, background: monthIdx === i ? C.accent : C.card, color: monthIdx === i ? "#fff" : C.muted }}>
+                {m}
+              </button>
+            ))}
+          </div>
+
+          {/* Stats Cards */}
+          <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
+            {[
+              { label: `Total Responses (${MONTHS[monthIdx]})`, val: totalResponses, editable: true },
+              { label: "Survey Period", val: MONTHS[monthIdx] },
+              { label: "Questions", val: SURVEY_DATA.length },
+              { label: "Key Insights", val: insights.length },
+            ].map((card, i) => (
+              <div key={i} style={{ background: C.card, borderRadius: 12, padding: 16, border: `1px solid ${C.border}`, flex: 1, minWidth: 120 }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{card.label}</div>
+                {card.editable
+                  ? <input type="number" value={totalResponses}
+                      onChange={e => { const v = Math.max(1, parseInt(e.target.value) || 1); const u = [...monthlyResponses]; u[monthIdx] = v; setMonthlyResponses(u); }}
+                      style={{ fontSize: 28, fontWeight: 700, color: C.text, background: "transparent", border: "none", outline: "none", width: "100%", padding: 0 }} />
+                  : <div style={{ fontSize: 28, fontWeight: 700, color: C.text }}>{card.val}</div>
+                }
+              </div>
+            ))}
+          </div>
+
+          {/* Insights */}
+          {showInsights && insights.length > 0 && (
+            <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, marginBottom: 24 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: C.text }}>💡 Key Insights — {MONTHS[monthIdx]}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
+                {insights.map((ins, i) => (
+                  <div key={i} style={{ background: darkMode ? COLORS.bg : "#fff", borderRadius: 8, padding: 16, border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 500 }}>{ins.question}</div>
+                    <div style={{ fontSize: 14, color: "#6ee7b7", fontWeight: 600 }}>{ins.text}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Sliders */}
+          <div style={{ background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}`, marginBottom: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>🎚️ Data Adjustment Controls — {MONTHS[monthIdx]}</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={undo} disabled={!canUndo}
+                  style={{ padding: "8px 12px", borderRadius: 6, border: "none", background: canUndo ? "#6ee7b7" : C.border, color: canUndo ? "#0f172a" : C.muted, fontSize: 12, fontWeight: 600, cursor: canUndo ? "pointer" : "not-allowed" }}>↩ Undo</button>
+                <button onClick={redo} disabled={!canRedo}
+                  style={{ padding: "8px 12px", borderRadius: 6, border: "none", background: canRedo ? "#6ee7b7" : C.border, color: canRedo ? "#0f172a" : C.muted, fontSize: 12, fontWeight: 600, cursor: canRedo ? "pointer" : "not-allowed" }}>↪ Redo</button>
+                <button onClick={resetSliders}
+                  style={{ padding: "8px 12px", borderRadius: 6, border: "none", background: C.border, color: C.text, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>↺ Reset</button>
+                <button onClick={() => setShowPresetModal(true)}
+                  style={{ padding: "8px 12px", borderRadius: 6, border: "none", background: C.accent, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>💾 Save Preset</button>
+              </div>
+            </div>
+
+            {presets.length > 0 && (
+              <div style={{ marginBottom: 16, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: 11, color: C.muted }}>Presets:</span>
+                {presets.map((p, i) => (
+                  <div key={i} style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <button onClick={() => loadPreset(p)}
+                      style={{ padding: "5px 12px", borderRadius: 20, border: `1px solid ${C.accent}`, background: "transparent", color: C.accent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>{p.name}</button>
+                    <button onClick={() => deletePreset(i)}
+                      style={{ padding: "3px 7px", borderRadius: 20, border: "none", background: "#f87171", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+              {SURVEY_DATA.map((q, i) => (
+                <div key={i}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 6 }}>
+                    <span style={{ color: C.text, fontWeight: 500 }}>{q.question.substring(0, 40)}...</span>
+                    <span style={{ color: sliders[i] >= 0 ? "#6ee7b7" : "#f87171", fontWeight: 600 }}>{sliders[i] >= 0 ? "+" : ""}{sliders[i].toFixed(1)}%</span>
+                  </div>
+                  <input type="range" min={-10} max={10} step={0.5} value={sliders[i]}
+                    onChange={e => updateSlider(i, parseFloat(e.target.value))}
+                    style={{ width: "100%", accentColor: C.accent, cursor: "pointer" }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Question Cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))", gap: 16 }}>
+            {SURVEY_DATA.map((q, i) => (
+              <QuestionCard key={q.id} question={q} monthIdx={monthIdx} sliderValue={sliders[i]}
+                onEnlarge={setEnlargedChart} totalResponses={totalResponses} C={C} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
